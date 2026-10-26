@@ -7,6 +7,8 @@ import Slider from "@mui/material/Slider";
 import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Pause from "@mui/icons-material/PauseRounded";
 import PlayArrow from "@mui/icons-material/PlayArrowRounded";
 import VolumeDown from "@mui/icons-material/VolumeDownRounded";
@@ -30,8 +32,10 @@ import {
   mute,
   shuffle,
   repeat,
+  selectLayer,
 } from "../playlists/playlistPlaybackSlice";
 import { BalancerSettings } from "../playlists/BalancerSettings";
+import { getPlayableLayers } from "../playlists/trackLayers";
 
 const minWidthForLargeContext = 650;
 
@@ -240,6 +244,47 @@ function Controls({
   );
 }
 
+/** Buttons for switching between the layers of a dynamic track */
+function Layers() {
+  const dispatch = useDispatch();
+  const track = useSelector((state: RootState) => state.playlistPlayback.track);
+  const layer = useSelector((state: RootState) => state.playlistPlayback.layer);
+
+  // Use the track as it was when played so the layers match the playback
+  const layers = track ? getPlayableLayers(track) : [];
+  if (layers.length < 2) {
+    return null;
+  }
+
+  function handleChange(_: React.MouseEvent, value: string | null) {
+    if (value !== null) {
+      dispatch(selectLayer(value));
+    }
+  }
+
+  return (
+    <Box sx={{ display: "flex", justifyContent: "center", mb: 1 }}>
+      <ToggleButtonGroup
+        size="small"
+        exclusive
+        value={layer || track.id}
+        onChange={handleChange}
+        aria-label="layers"
+      >
+        {layers.map((trackLayer) => (
+          <ToggleButton
+            key={trackLayer.id}
+            value={trackLayer.id}
+            sx={{ textTransform: "none", px: 1.5, py: 0.25 }}
+          >
+            {trackLayer.title}
+          </ToggleButton>
+        ))}
+      </ToggleButtonGroup>
+    </Box>
+  );
+}
+
 function Volume() {
   const dispatch = useDispatch();
   const large = useMediaQuery(`(min-width: ${minWidthForLargeContext}px)`);
@@ -378,6 +423,7 @@ export function PlaylistPlayer({
           />
           <Volume />
         </Stack>
+        <Layers />
         <Time onPlaylistSeek={onPlaylistSeek} />
       </>
     );
@@ -385,6 +431,7 @@ export function PlaylistPlayer({
     return (
       <>
         <Title />
+        <Layers />
         <Time onPlaylistSeek={onPlaylistSeek} />
         <Controls
           onPlaylistNext={onPlaylistNext}

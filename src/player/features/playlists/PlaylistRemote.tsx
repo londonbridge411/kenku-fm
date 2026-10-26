@@ -11,7 +11,9 @@ import {
   adjustVolume,
   shuffle,
   startQueue,
+  selectLayer,
 } from "./playlistPlaybackSlice";
+import { getPlayableLayers } from "./trackLayers";
 
 type PlaylistRemoteProps = {
   onPlay: (track: Track) => void;
@@ -73,9 +75,15 @@ export function PlaylistRemote({
     window.player.on("PLAYER_REMOTE_PLAYLIST_PLAYBACK_REQUEST", () => {
       let track = undefined;
       if (playback.track && playback.playback && playback.queue) {
+        const layers = getPlayableLayers(playback.track);
         track = {
           ...playback.track,
           ...playback.playback,
+          layers:
+            layers.length > 1
+              ? layers.map(({ id, title }) => ({ id, title }))
+              : undefined,
+          layer: layers.length > 1 ? playback.layer || layers[0].id : undefined,
         };
       }
       let playlist = undefined;
@@ -193,6 +201,23 @@ export function PlaylistRemote({
       );
     };
   }, []);
+
+  useEffect(() => {
+    window.player.on("PLAYER_REMOTE_PLAYLIST_PLAYBACK_LAYER", (args) => {
+      const id = args[0];
+      // Ignore layers that aren't part of the playing track
+      if (
+        playback.track &&
+        getPlayableLayers(playback.track).some((layer) => layer.id === id)
+      ) {
+        dispatch(selectLayer(id));
+      }
+    });
+
+    return () => {
+      window.player.removeAllListeners("PLAYER_REMOTE_PLAYLIST_PLAYBACK_LAYER");
+    };
+  }, [playback]);
 
   useEffect(() => {
     window.player.on("PLAYER_REMOTE_PLAYLIST_PLAYBACK_NEXT", () => {

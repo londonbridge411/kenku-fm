@@ -1,11 +1,24 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 
+export interface TrackLayer {
+  id: string;
+  url: string;
+  title: string;
+}
+
 export interface Track {
   id: string;
   url: string;
   title: string;
   /** Gain offset in dB applied on top of the dB balancer */
   gain?: number;
+  /**
+   * Extra layers of a dynamic track that play in sync with the main audio (`url`).
+   * Only one layer is heard at a time and switching cross fades between them.
+   */
+  layers?: TrackLayer[];
+  /** Name of the main layer of a dynamic track */
+  layerTitle?: string;
 }
 
 export interface Playlist {

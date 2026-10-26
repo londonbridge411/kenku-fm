@@ -41,7 +41,8 @@ function dbToGain(db: number) {
 
 /**
  * Routes the HTML5 audio of a playlist track through a gain node
- * so the dB balancer can raise or lower its level
+ * so the dB balancer can raise or lower its level.
+ * Each layer of a dynamic track gets its own gain node so only the active layer is heard.
  */
 export class TrackOutput {
   /** Id of the track this output belongs to */
@@ -49,6 +50,10 @@ export class TrackOutput {
   _gain: GainNode | null = null;
   _db = 0;
   _howls: Howl[] = [];
+  /** Gain node for each howl used to switch between layers */
+  _layers: GainNode[] = [];
+  /** Index of the layer that can be heard */
+  _activeLayer = 0;
 
   constructor(trackId: string, gainDb: number) {
     this.trackId = trackId;
@@ -60,19 +65,23 @@ export class TrackOutput {
     if (!canAdjustGain(url)) {
       return;
     }
+    const { context, limiter } = getOutput();
     if (!this._gain) {
-      const { context, limiter } = getOutput();
       this._gain = context.createGain();
       this._gain.gain.value = dbToGain(this._db);
       this._gain.connect(limiter);
     }
+    const layer = context.createGain();
+    layer.gain.value = this._howls.length === this._activeLayer ? 1 : 0;
+    layer.connect(this._gain);
     this._howls.push(howl);
-    this._connect(howl);
+    this._layers.push(layer);
+    this._connect(howl, layer);
     // Howler may create a new audio element when replaying so connect again on play
-    howl.on("play", () => this._connect(howl));
+    howl.on("play", () => this._connect(howl, layer));
   }
 
-  _connect(howl: Howl) {
+  _connect(howl: Howl, layer: GainNode) {
     const { context } = getOutput();
     if (context.state === "suspended") {
       context.resume();
@@ -95,7 +104,7 @@ export class TrackOutput {
         });
       }
       source.disconnect();
-      source.connect(this._gain);
+      source.connect(layer);
     }
   }
 
@@ -115,11 +124,37 @@ export class TrackOutput {
     }
   }
 
+  /**
+   * Cross fade to the layer at index
+   * @param fade Fade duration in seconds
+   */
+  setLayer(index: number, fade: number) {
+    if (index === this._activeLayer) {
+      return;
+    }
+    this._activeLayer = index;
+    if (this._layers.length === 0) {
+      return;
+    }
+    const { context } = getOutput();
+    const now = context.currentTime;
+    this._layers.forEach((layer, i) => {
+      // Layers are different mixes of the same music so a linear fade keeps the level even
+      layer.gain.cancelScheduledValues(now);
+      layer.gain.setValueAtTime(layer.gain.value, now);
+      layer.gain.linearRampToValueAtTime(i === index ? 1 : 0, now + fade);
+    });
+  }
+
   dispose() {
     for (const howl of this._howls) {
       howl.off("play");
     }
     this._howls = [];
+    for (const layer of this._layers) {
+      layer.disconnect();
+    }
+    this._layers = [];
     this._gain?.disconnect();
     this._gain = null;
   }

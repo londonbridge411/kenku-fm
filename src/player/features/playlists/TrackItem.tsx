@@ -4,6 +4,8 @@ import ListItemButton from "@mui/material/ListItemButton";
 import ListItemText from "@mui/material/ListItemText";
 import PlayArrow from "@mui/icons-material/PlayArrowRounded";
 import Pause from "@mui/icons-material/PauseRounded";
+import LayersIcon from "@mui/icons-material/LayersRounded";
+import Tooltip from "@mui/material/Tooltip";
 import IconButton from "@mui/material/IconButton";
 import Paper from "@mui/material/Paper";
 
@@ -14,6 +16,7 @@ import MenuItem from "@mui/material/MenuItem";
 import { Track, removeTrack, Playlist } from "./playlistsSlice";
 import { useDispatch, useSelector } from "react-redux";
 import { TrackSettings } from "./TrackSettings";
+import { getTrackLayers, isDynamicTrack } from "./trackLayers";
 import { RootState } from "../../app/store";
 import {
   playPause,
@@ -109,6 +112,14 @@ export function TrackItem({ track, playlist, onPlay }: TrackItemProps) {
               typography: "body1",
             }}
           />
+          {isDynamicTrack(track) && (
+            <Tooltip title={`Dynamic track (${getTrackLayers(track).length} layers)`}>
+              <LayersIcon
+                fontSize="small"
+                sx={{ mx: 1, color: "rgba(255,255,255,0.6)" }}
+              />
+            </Tooltip>
+          )}
           <IconButton
             aria-label={playing ? "pause" : "play"}
             onClick={handlePlayPause}

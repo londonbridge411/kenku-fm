@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef } from "react";
-import { Howl } from "howler";
 
 import { useDispatch, useSelector, useStore } from "react-redux";
 import { RootState } from "../../app/store";
@@ -13,12 +12,14 @@ import {
 import { Track } from "./playlistsSlice";
 import { getTrackGain } from "./balancerSlice";
 import { TrackOutput } from "./TrackOutput";
+import { LayeredTrack } from "./LayeredTrack";
+import { getPlayableLayers } from "./trackLayers";
 
 /** How long a soft stop takes to fade out the current track in ms */
 const SOFT_STOP_FADE_DURATION = 3000;
 
 export function usePlaylistPlayback(onError: (message: string) => void) {
-  const trackRef = useRef<Howl | null>(null);
+  const trackRef = useRef<LayeredTrack | null>(null);
   /** Gain stage of the current track used by the dB balancer */
   const outputRef = useRef<TrackOutput | null>(null);
   const animationRef = useRef<number | null>(null);
@@ -38,6 +39,7 @@ export function usePlaylistPlayback(onError: (message: string) => void) {
   const playbackTrack = useSelector(
     (state: RootState) => state.playlistPlayback.track
   );
+  const layer = useSelector((state: RootState) => state.playlistPlayback.layer);
   const dispatch = useDispatch();
 
   /** Cancel an in progress soft stop, returns true if one was cancelled */
@@ -71,7 +73,9 @@ export function usePlaylistPlayback(onError: (message: string) => void) {
         track.id,
         getTrackGain(state.playlists.tracks[track.id] || track, state.balancer)
       );
+      let howl: LayeredTrack | undefined;
       function error() {
+        howl?.unload();
         trackRef.current = undefined;
         if (outputRef.current === output) {
           outputRef.current = null;
@@ -83,16 +87,12 @@ export function usePlaylistPlayback(onError: (message: string) => void) {
       }
 
       try {
-        const howl = new Howl({
-          src: track.url,
-          html5: true,
+        howl = new LayeredTrack(getPlayableLayers(track), output, {
           mute: muted,
-          volume: 0,
         });
 
         trackRef.current = howl;
         outputRef.current = output;
-        output.add(howl, track.url);
         howl.once("load", () => {
           dispatch(
             playTrack({
@@ -124,12 +124,9 @@ export function usePlaylistPlayback(onError: (message: string) => void) {
           animationRef.current = requestAnimationFrame(animatePlayback);
         });
 
-        howl.on("loaderror", error);
+        howl.on("error", error);
 
-        howl.on("playerror", error);
-
-        const sound = (howl as any)._sounds[0];
-        if (!sound) {
+        if (!howl.valid()) {
           error();
         }
       } catch {
@@ -151,6 +148,11 @@ export function usePlaylistPlayback(onError: (message: string) => void) {
       }
     });
   }, [store]);
+
+  // Cross fade to the selected layer of a dynamic track
+  useEffect(() => {
+    trackRef.current?.setLayer(layer);
+  }, [layer]);
 
   const seek = useCallback((to: number) => {
     dispatch(updatePlayback(to));

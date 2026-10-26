@@ -13,6 +13,7 @@ import { RootState } from "../../app/store";
 import { editTrack, Track } from "./playlistsSlice";
 import { AudioSelector } from "../../common/AudioSelector";
 import { canAdjustGain } from "./TrackOutput";
+import { TrackLayerSettings } from "./TrackLayerSettings";
 
 type TrackSettingsProps = {
   track: Track;
@@ -100,6 +101,7 @@ export function TrackSettings({ track, open, onClose }: TrackSettingsProps) {
                   1
                 )} dB (LUFS)`}
           </Typography>
+          <TrackLayerSettings track={track} />
         </DialogContent>
         <DialogActions>
           <Button type="submit">Done</Button>
