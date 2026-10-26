@@ -76,6 +76,8 @@ export function App() {
         onPlaylistSeek={playlist.seek}
         onPlaylistNext={playlist.next}
         onPlaylistPrevious={playlist.previous}
+        onPlaylistStop={playlist.stop}
+        onPlaylistSoftStop={playlist.softStop}
         onSoundboardStop={soundboard.stop}
       />
       <PlaylistMediaSession

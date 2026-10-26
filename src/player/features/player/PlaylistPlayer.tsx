@@ -6,6 +6,7 @@ import Typography from "@mui/material/Typography";
 import Slider from "@mui/material/Slider";
 import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
+import Tooltip from "@mui/material/Tooltip";
 import Pause from "@mui/icons-material/PauseRounded";
 import PlayArrow from "@mui/icons-material/PlayArrowRounded";
 import VolumeDown from "@mui/icons-material/VolumeDownRounded";
@@ -16,6 +17,8 @@ import RepeatOne from "@mui/icons-material/RepeatOneRounded";
 import Shuffle from "@mui/icons-material/ShuffleRounded";
 import Next from "@mui/icons-material/SkipNextRounded";
 import Previous from "@mui/icons-material/SkipPreviousRounded";
+import Stop from "@mui/icons-material/StopRounded";
+import SoftStop from "@mui/icons-material/TrendingDownRounded";
 import useMediaQuery from "@mui/material/useMediaQuery";
 
 import { useDispatch, useSelector } from "react-redux";
@@ -78,6 +81,8 @@ type PlaylistPlayerProps = {
   onPlaylistNext: () => void;
   onPlaylistPrevious: () => void;
   onPlaylistSeek: (to: number) => void;
+  onPlaylistStop: () => void;
+  onPlaylistSoftStop: () => void;
 };
 
 function Title() {
@@ -120,6 +125,8 @@ function Title() {
 function Controls({
   onPlaylistPrevious,
   onPlaylistNext,
+  onPlaylistStop,
+  onPlaylistSoftStop,
 }: Omit<PlaylistPlayerProps, "onPlaylistSeek">) {
   const dispatch = useDispatch();
   const playbackShuffle = useSelector(
@@ -171,6 +178,17 @@ function Controls({
       <IconButton aria-label="shuffle" onClick={handleShuffle}>
         <Shuffle color={playbackShuffle ? "primary" : undefined} />
       </IconButton>
+      <Tooltip title="Stop">
+        <span>
+          <IconButton
+            disabled={disabled}
+            aria-label="stop"
+            onClick={() => onPlaylistStop()}
+          >
+            <Stop />
+          </IconButton>
+        </span>
+      </Tooltip>
       <IconButton
         disabled={disabled}
         aria-label="previous"
@@ -196,6 +214,17 @@ function Controls({
       >
         <Next />
       </IconButton>
+      <Tooltip title="Soft Stop">
+        <span>
+          <IconButton
+            disabled={disabled}
+            aria-label="soft stop"
+            onClick={() => onPlaylistSoftStop()}
+          >
+            <SoftStop />
+          </IconButton>
+        </span>
+      </Tooltip>
       <IconButton aria-label={`repeat ${playbackRepeat}`} onClick={handlRepeat}>
         {playbackRepeat === "off" ? (
           <RepeatIcon />
@@ -313,6 +342,8 @@ export function PlaylistPlayer({
   onPlaylistNext,
   onPlaylistPrevious,
   onPlaylistSeek,
+  onPlaylistStop,
+  onPlaylistSoftStop,
 }: PlaylistPlayerProps) {
   const large = useMediaQuery(`(min-width: ${minWidthForLargeContext}px)`);
 
@@ -324,6 +355,8 @@ export function PlaylistPlayer({
           <Controls
             onPlaylistNext={onPlaylistNext}
             onPlaylistPrevious={onPlaylistPrevious}
+            onPlaylistStop={onPlaylistStop}
+            onPlaylistSoftStop={onPlaylistSoftStop}
           />
           <Volume />
         </Stack>
@@ -338,6 +371,8 @@ export function PlaylistPlayer({
         <Controls
           onPlaylistNext={onPlaylistNext}
           onPlaylistPrevious={onPlaylistPrevious}
+          onPlaylistStop={onPlaylistStop}
+          onPlaylistSoftStop={onPlaylistSoftStop}
         />
         <Volume />
       </>

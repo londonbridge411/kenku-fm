@@ -12,9 +12,14 @@ import {
 } from "./playlistPlaybackSlice";
 import { Track } from "./playlistsSlice";
 
+/** How long a soft stop takes to fade out the current track in ms */
+const SOFT_STOP_FADE_DURATION = 3000;
+
 export function usePlaylistPlayback(onError: (message: string) => void) {
   const trackRef = useRef<Howl | null>(null);
   const animationRef = useRef<number | null>(null);
+  /** Timeout that finishes an in progress soft stop */
+  const softStopRef = useRef<number | null>(null);
 
   const playlists = useSelector((state: RootState) => state.playlists);
   const store = useStore<RootState>();
@@ -31,8 +36,20 @@ export function usePlaylistPlayback(onError: (message: string) => void) {
   );
   const dispatch = useDispatch();
 
+  /** Cancel an in progress soft stop, returns true if one was cancelled */
+  const cancelSoftStop = useCallback(() => {
+    if (softStopRef.current === null) {
+      return false;
+    }
+    clearTimeout(softStopRef.current);
+    softStopRef.current = null;
+    return true;
+  }, []);
+
   const play = useCallback(
     (track: Track) => {
+      // The previous track is faded out below so no need to finish the soft stop
+      cancelSoftStop();
       let prevTrack = trackRef.current;
       function removePrevTrack() {
         if (prevTrack) {
@@ -99,7 +116,7 @@ export function usePlaylistPlayback(onError: (message: string) => void) {
         error();
       }
     },
-    [onError, muted, store]
+    [onError, muted, store, cancelSoftStop]
   );
 
   const seek = useCallback((to: number) => {
@@ -108,10 +125,32 @@ export function usePlaylistPlayback(onError: (message: string) => void) {
   }, []);
 
   const stop = useCallback(() => {
+    const wasSoftStopping = cancelSoftStop();
     dispatch(playPause(false));
     dispatch(updatePlayback(0));
-    trackRef.current?.stop();
-  }, []);
+    const track = trackRef.current;
+    if (track) {
+      track.stop();
+      // Restore the volume lowered by the soft stop fade so the track can be played again
+      if (wasSoftStopping) {
+        track.volume(store.getState().playlistPlayback.volume);
+      }
+    }
+  }, [cancelSoftStop, store]);
+
+  /** Fade out the current track before stopping it */
+  const softStop = useCallback(() => {
+    const track = trackRef.current;
+    if (!track || softStopRef.current !== null) {
+      return;
+    }
+    if (!track.playing()) {
+      stop();
+      return;
+    }
+    track.fade(track.volume(), 0, SOFT_STOP_FADE_DURATION);
+    softStopRef.current = window.setTimeout(stop, SOFT_STOP_FADE_DURATION);
+  }, [stop]);
 
   const next = useCallback(() => {
     if (!trackRef.current) {
@@ -203,7 +242,8 @@ export function usePlaylistPlayback(onError: (message: string) => void) {
     const track = trackRef.current;
     // Move to next song or repeat this song on track end
     function handleEnd() {
-      if (!queue) {
+      // Don't move on to the next track if the track ended while soft stopping
+      if (!queue || softStopRef.current !== null) {
         stop();
       } else if (repeat === "track") {
         seek(0);
@@ -246,27 +286,51 @@ export function usePlaylistPlayback(onError: (message: string) => void) {
     };
   }, [repeat, queue, shuffle, playbackTrack, playlists, play, seek, stop]);
 
-  const pauseResume = useCallback((resume: boolean) => {
-    if (trackRef.current) {
-      if (resume) {
-        trackRef.current.play();
-      } else {
-        trackRef.current.pause();
+  // Howler snaps an interrupted fade to its end volume (silent for a soft stop)
+  // so pausing, muting or changing volume during a soft stop needs extra handling
+
+  const pauseResume = useCallback(
+    (resume: boolean) => {
+      if (trackRef.current) {
+        if (resume) {
+          trackRef.current.play();
+        } else if (softStopRef.current !== null) {
+          // Pausing during a soft stop finishes the stop early
+          stop();
+        } else {
+          trackRef.current.pause();
+        }
       }
-    }
-  }, []);
+    },
+    [stop]
+  );
 
-  const mute = useCallback((muted: boolean) => {
-    if (trackRef.current) {
-      trackRef.current.mute(muted);
-    }
-  }, []);
+  const mute = useCallback(
+    (muted: boolean) => {
+      if (trackRef.current) {
+        trackRef.current.mute(muted);
+        // Muting during a soft stop finishes the stop early
+        if (softStopRef.current !== null) {
+          stop();
+        }
+      }
+    },
+    [stop]
+  );
 
-  const volume = useCallback((volume: number) => {
-    if (trackRef.current) {
-      trackRef.current.volume(volume);
-    }
-  }, []);
+  const volume = useCallback(
+    (volume: number) => {
+      if (trackRef.current) {
+        // Changing the volume during a soft stop cancels it.
+        // The first call stops the fade and the second call overrides the volume it snapped to
+        if (cancelSoftStop()) {
+          trackRef.current.volume(volume);
+        }
+        trackRef.current.volume(volume);
+      }
+    },
+    [cancelSoftStop]
+  );
 
   return {
     seek,
@@ -274,6 +338,7 @@ export function usePlaylistPlayback(onError: (message: string) => void) {
     next,
     previous,
     stop,
+    softStop,
     pauseResume,
     mute,
     volume,

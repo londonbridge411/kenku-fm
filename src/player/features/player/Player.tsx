@@ -10,6 +10,8 @@ type PlayerProps = {
   onPlaylistNext: () => void;
   onPlaylistPrevious: () => void;
   onPlaylistSeek: (to: number) => void;
+  onPlaylistStop: () => void;
+  onPlaylistSoftStop: () => void;
   onSoundboardStop: (id: string) => void;
 };
 
@@ -17,6 +19,8 @@ export function Player({
   onPlaylistNext,
   onPlaylistPrevious,
   onPlaylistSeek,
+  onPlaylistStop,
+  onPlaylistSoftStop,
   onSoundboardStop,
 }: PlayerProps) {
   return (
@@ -43,6 +47,8 @@ export function Player({
           onPlaylistNext={onPlaylistNext}
           onPlaylistPrevious={onPlaylistPrevious}
           onPlaylistSeek={onPlaylistSeek}
+          onPlaylistStop={onPlaylistStop}
+          onPlaylistSoftStop={onPlaylistSoftStop}
         />
       </Paper>
     </Container>
