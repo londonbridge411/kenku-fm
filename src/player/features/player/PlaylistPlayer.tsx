@@ -19,6 +19,7 @@ import Next from "@mui/icons-material/SkipNextRounded";
 import Previous from "@mui/icons-material/SkipPreviousRounded";
 import Stop from "@mui/icons-material/StopRounded";
 import SoftStop from "@mui/icons-material/TrendingDownRounded";
+import Balancer from "@mui/icons-material/GraphicEqRounded";
 import useMediaQuery from "@mui/material/useMediaQuery";
 
 import { useDispatch, useSelector } from "react-redux";
@@ -30,6 +31,7 @@ import {
   shuffle,
   repeat,
 } from "../playlists/playlistPlaybackSlice";
+import { BalancerSettings } from "../playlists/BalancerSettings";
 
 const minWidthForLargeContext = 650;
 
@@ -246,6 +248,10 @@ function Volume() {
   const volume = useSelector(
     (state: RootState) => state.playlistPlayback.volume,
   );
+  const balancerEnabled = useSelector(
+    (state: RootState) => state.balancer.enabled,
+  );
+  const [balancerOpen, setBalancerOpen] = useState(false);
 
   function handleVolumeChange(_: Event, value: number | number[]) {
     dispatch(adjustVolume(value as number));
@@ -284,6 +290,18 @@ function Volume() {
           <VolumeUp sx={{ color: "rgba(255,255,255,0.4)" }} />
         </Box>
       )}
+      <Tooltip title="dB Balancer">
+        <IconButton
+          aria-label="dB balancer"
+          onClick={() => setBalancerOpen(true)}
+        >
+          <Balancer color={balancerEnabled ? "primary" : undefined} />
+        </IconButton>
+      </Tooltip>
+      <BalancerSettings
+        open={balancerOpen}
+        onClose={() => setBalancerOpen(false)}
+      />
     </Stack>
   );
 }

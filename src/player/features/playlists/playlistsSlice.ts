@@ -4,6 +4,8 @@ export interface Track {
   id: string;
   url: string;
   title: string;
+  /** Gain offset in dB applied on top of the dB balancer */
+  gain?: number;
 }
 
 export interface Playlist {

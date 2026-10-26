@@ -11,12 +11,16 @@ import {
   stopTrack,
 } from "./playlistPlaybackSlice";
 import { Track } from "./playlistsSlice";
+import { getTrackGain } from "./balancerSlice";
+import { TrackOutput } from "./TrackOutput";
 
 /** How long a soft stop takes to fade out the current track in ms */
 const SOFT_STOP_FADE_DURATION = 3000;
 
 export function usePlaylistPlayback(onError: (message: string) => void) {
   const trackRef = useRef<Howl | null>(null);
+  /** Gain stage of the current track used by the dB balancer */
+  const outputRef = useRef<TrackOutput | null>(null);
   const animationRef = useRef<number | null>(null);
   /** Timeout that finishes an in progress soft stop */
   const softStopRef = useRef<number | null>(null);
@@ -51,14 +55,28 @@ export function usePlaylistPlayback(onError: (message: string) => void) {
       // The previous track is faded out below so no need to finish the soft stop
       cancelSoftStop();
       let prevTrack = trackRef.current;
+      let prevOutput = outputRef.current;
       function removePrevTrack() {
         if (prevTrack) {
           prevTrack.unload();
           prevTrack = undefined;
         }
+        if (prevOutput) {
+          prevOutput.dispose();
+          prevOutput = undefined;
+        }
       }
+      const state = store.getState();
+      const output = new TrackOutput(
+        track.id,
+        getTrackGain(state.playlists.tracks[track.id] || track, state.balancer)
+      );
       function error() {
         trackRef.current = undefined;
+        if (outputRef.current === output) {
+          outputRef.current = null;
+        }
+        output.dispose();
         dispatch(stopTrack());
         removePrevTrack();
         onError(`Unable to play track: ${track.title}`);
@@ -73,6 +91,8 @@ export function usePlaylistPlayback(onError: (message: string) => void) {
         });
 
         trackRef.current = howl;
+        outputRef.current = output;
+        output.add(howl, track.url);
         howl.once("load", () => {
           dispatch(
             playTrack({
@@ -118,6 +138,19 @@ export function usePlaylistPlayback(onError: (message: string) => void) {
     },
     [onError, muted, store, cancelSoftStop]
   );
+
+  // Keep the current track's gain in sync with the balancer and track settings
+  useEffect(() => {
+    return store.subscribe(() => {
+      const output = outputRef.current;
+      const state = store.getState();
+      // Skip deleted tracks so their gain doesn't jump while fading out
+      const track = output && state.playlists.tracks[output.trackId];
+      if (track) {
+        output.setGain(getTrackGain(track, state.balancer));
+      }
+    });
+  }, [store]);
 
   const seek = useCallback((to: number) => {
     dispatch(updatePlayback(to));

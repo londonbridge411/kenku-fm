@@ -5,10 +5,14 @@ import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
+import Slider from "@mui/material/Slider";
+import Typography from "@mui/material/Typography";
 
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
+import { RootState } from "../../app/store";
 import { editTrack, Track } from "./playlistsSlice";
 import { AudioSelector } from "../../common/AudioSelector";
+import { canAdjustGain } from "./TrackOutput";
 
 type TrackSettingsProps = {
   track: Track;
@@ -18,6 +22,10 @@ type TrackSettingsProps = {
 
 export function TrackSettings({ track, open, onClose }: TrackSettingsProps) {
   const dispatch = useDispatch();
+  const loudness = useSelector(
+    (state: RootState) => state.balancer.loudness[track.url]
+  );
+  const gain = track.gain || 0;
 
   function handleTitleChange(event: React.ChangeEvent<HTMLInputElement>) {
     dispatch(editTrack({ id: track.id, title: event.target.value }));
@@ -29,6 +37,10 @@ export function TrackSettings({ track, open, onClose }: TrackSettingsProps) {
 
   function handleURLChange(url: string) {
     dispatch(editTrack({ id: track.id, url }));
+  }
+
+  function handleGainChange(_: Event, value: number | number[]) {
+    dispatch(editTrack({ id: track.id, gain: value as number }));
   }
 
   function handleSubmit(event: React.FormEvent) {
@@ -65,6 +77,29 @@ export function TrackSettings({ track, open, onClose }: TrackSettingsProps) {
             value={track.title}
             onChange={handleTitleChange}
           />
+          <Typography variant="body2" sx={{ mt: 2 }}>
+            Gain: {gain > 0 ? "+" : ""}
+            {gain} dB
+          </Typography>
+          <Slider
+            aria-label="Gain"
+            value={gain}
+            min={-12}
+            max={12}
+            step={0.5}
+            marks={[{ value: 0 }]}
+            disabled={!canAdjustGain(track.url)}
+            onChange={handleGainChange}
+          />
+          <Typography variant="caption" color="text.secondary" component="p">
+            {!canAdjustGain(track.url)
+              ? "Only local files can have their gain adjusted"
+              : loudness === undefined
+              ? "Applied on top of the dB balancer. Not measured yet"
+              : `Applied on top of the dB balancer. Measured loudness: ${loudness.toFixed(
+                  1
+                )} dB (LUFS)`}
+          </Typography>
         </DialogContent>
         <DialogActions>
           <Button type="submit">Done</Button>
