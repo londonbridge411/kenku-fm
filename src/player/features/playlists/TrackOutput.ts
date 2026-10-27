@@ -1,4 +1,4 @@
-import { Howl } from "howler";
+import { Howl, Howler } from "howler";
 
 /** Largest boost in dB the balancer will apply to a track */
 export const MAX_TRACK_GAIN = 12;
@@ -6,15 +6,37 @@ export const MAX_TRACK_GAIN = 12;
 export const MIN_TRACK_GAIN = -30;
 /** Time constant for smoothing gain changes in seconds */
 const GAIN_SMOOTHING = 0.25;
+/** Level of the signal that keeps the output running, -160dB is far too quiet to hear */
+const KEEP_ALIVE_LEVEL = 1e-8;
 
 let context: AudioContext | null = null;
 let limiter: DynamicsCompressorNode | null = null;
 /** A media element can only ever be connected to one source node so reuse them */
 const sources = new WeakMap<HTMLMediaElement, MediaElementAudioSourceNode>();
+/** Layer gain each source is connected to */
+const connections = new WeakMap<MediaElementAudioSourceNode, GainNode>();
+
+// Electron doesn't need a user gesture to play audio so skip Howler's unlock step.
+// It closes and recreates Howler's audio context as the first track starts
+// and reloads any audio element it doesn't think has played yet
+Howler.autoUnlock = false;
+
+// Routed elements stay connected to web audio so they can't be reused for other sounds.
+// Stop Howler returning them to its pool of reusable elements when a track is unloaded
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const howler = Howler as any;
+const releaseHtml5Audio = howler._releaseHtml5Audio;
+howler._releaseHtml5Audio = function (audio: HTMLAudioElement) {
+  if (sources.has(audio)) {
+    return this;
+  }
+  return releaseHtml5Audio.call(this, audio);
+};
 
 function getOutput() {
   if (!context) {
-    context = new AudioContext();
+    // Low latency isn't needed for music and larger buffers are less likely to glitch
+    context = new AudioContext({ latencyHint: "playback" });
     // Limiter to catch peaks pushed over 0dBFS when boosting quiet tracks
     limiter = context.createDynamicsCompressor();
     limiter.threshold.value = -1;
@@ -23,8 +45,28 @@ function getOutput() {
     limiter.attack.value = 0.003;
     limiter.release.value = 0.25;
     limiter.connect(context.destination);
+    // Chromium stops the output of a silent audio context after 30 seconds and
+    // starts it again when sound plays. Keep it running with a signal too quiet
+    // to hear so tracks never start while the output is starting
+    const keepAlive = context.createConstantSource();
+    keepAlive.offset.value = KEEP_ALIVE_LEVEL;
+    keepAlive.connect(context.destination);
+    keepAlive.start();
   }
   return { context, limiter };
+}
+
+/**
+ * Start the playlist and Howler audio outputs ahead of time
+ * so they are already running when the first track plays.
+ */
+export function startOutput() {
+  const { context } = getOutput();
+  if (context.state === "suspended") {
+    context.resume();
+  }
+  // Getting the volume creates Howler's audio context
+  Howler.volume();
 }
 
 /**
@@ -95,16 +137,13 @@ export class TrackOutput {
       if (!source) {
         source = context.createMediaElementSource(element);
         sources.set(element, source);
-        // Stop Howler from reusing this element for other sounds once it's unloaded
-        // as it will always be routed through web audio from now on.
-        // Howler only pools elements marked unlocked and marks them on every play
-        Object.defineProperty(element, "_unlocked", {
-          get: () => false,
-          set: () => {},
-        });
       }
-      source.disconnect();
-      source.connect(layer);
+      // Avoid reconnecting a playing source as it can cause a glitch
+      if (connections.get(source) !== layer) {
+        source.disconnect();
+        source.connect(layer);
+        connections.set(source, layer);
+      }
     }
   }
 

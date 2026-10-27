@@ -11,7 +11,7 @@ import {
 } from "./playlistPlaybackSlice";
 import { Track } from "./playlistsSlice";
 import { getTrackGain } from "./balancerSlice";
-import { TrackOutput } from "./TrackOutput";
+import { startOutput, TrackOutput } from "./TrackOutput";
 import { LayeredTrack } from "./LayeredTrack";
 import { getPlayableLayers } from "./trackLayers";
 
@@ -135,6 +135,11 @@ export function usePlaylistPlayback(onError: (message: string) => void) {
     },
     [onError, muted, store, cancelSoftStop]
   );
+
+  // Start the audio output early so it's already running when the first track plays
+  useEffect(() => {
+    startOutput();
+  }, []);
 
   // Keep the current track's gain in sync with the balancer and track settings
   useEffect(() => {
