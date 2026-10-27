@@ -38,8 +38,8 @@ export class AudioCaptureManagerPreload {
   /** Audio output node that streams will connect to */
   _audioOutputNode?: AudioNode;
 
-  /** Audio DOM element for the current output / local playback */
-  _audioOutputElement?: HTMLAudioElement;
+  /** Gain node for the local playback of the current output */
+  _loopbackOutput?: GainNode;
   /** Raw media streams for each browser view containing webp/opus audio */
   _mediaStreams: Record<number, MediaStream> = {};
   _mediaStreamOutputs: Record<number, GainNode> = {};
@@ -110,7 +110,9 @@ export class AudioCaptureManagerPreload {
    * @param {boolean} loopback
    */
   setLoopback(loopback: boolean): void {
-    this._audioOutputElement.muted = !loopback;
+    if (this._loopbackOutput) {
+      this._loopbackOutput.gain.value = loopback ? 1 : 0;
+    }
   }
 
   async startExternalAudioCapture(deviceId: string): Promise<void> {
@@ -169,15 +171,21 @@ export class AudioCaptureManagerPreload {
   }
 
   async _setupLoopback(): Promise<void> {
-    // Create loopback media element
-    const mediaDestination = this._audioContext.createMediaStreamDestination();
-    this._audioOutputNode.connect(mediaDestination);
+    // Play the output straight from the audio context.
+    // Playing it through a media element adds a resampler that corrects for
+    // clock drift by changing the pitch, which can be heard for the first
+    // seconds after starting
+    this._loopbackOutput = this._audioContext.createGain();
+    this._audioOutputNode.connect(this._loopbackOutput);
+    this._loopbackOutput.connect(this._audioContext.destination);
 
-    this._audioOutputElement = document.createElement("audio");
-    this._audioOutputElement.srcObject = mediaDestination.stream;
-    this._audioOutputElement.onloadedmetadata = () => {
-      this._audioOutputElement.play();
-    };
+    // Chromium stops the output of a silent audio context after 30 seconds
+    // and starts it again when audio plays, keep it running with a signal
+    // too quiet to hear (-160dB)
+    const keepAlive = this._audioContext.createConstantSource();
+    keepAlive.offset.value = 1e-8;
+    keepAlive.connect(this._audioContext.destination);
+    keepAlive.start();
   }
 
   /**
