@@ -3,6 +3,7 @@ import playlistsReducer from "../features/playlists/playlistsSlice";
 import soundboardsReducer from "../features/soundboards/soundboardsSlice";
 import playlsitPlaybackReducer from "../features/playlists/playlistPlaybackSlice";
 import soundboardPlaybackReducer from "../features/soundboards/soundboardPlaybackSlice";
+import balancerReducer from "../features/playlists/balancerSlice";
 
 import {
   persistStore,
@@ -31,13 +32,14 @@ const rootReducer = combineReducers({
     playlsitPlaybackReducer
   ),
   soundboardPlayback: soundboardPlaybackReducer,
+  balancer: balancerReducer,
 });
 
 const persistConfig = {
   key: "player",
   version: 1,
   storage,
-  whitelist: ["playlists", "soundboards"],
+  whitelist: ["playlists", "soundboards", "balancer"],
 };
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);

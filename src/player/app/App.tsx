@@ -11,6 +11,7 @@ import { usePlaylistPlayback } from "../features/playlists/usePlaylistPlayback";
 import { PlaylistMediaSession } from "../features/playlists/PlaylistMediaSession";
 import { PlaylistRemote } from "../features/playlists/PlaylistRemote";
 import { PlaylistPlaybackSync } from "../features/playlists/PlaylistPlaybackSync";
+import { PlaylistBalancer } from "../features/playlists/PlaylistBalancer";
 import { Playlists } from "../features/playlists/Playlists";
 import { Playlist } from "../features/playlists/Playlist";
 
@@ -76,6 +77,8 @@ export function App() {
         onPlaylistSeek={playlist.seek}
         onPlaylistNext={playlist.next}
         onPlaylistPrevious={playlist.previous}
+        onPlaylistStop={playlist.stop}
+        onPlaylistSoftStop={playlist.softStop}
         onSoundboardStop={soundboard.stop}
       />
       <PlaylistMediaSession
@@ -95,6 +98,7 @@ export function App() {
         onPauseResume={playlist.pauseResume}
         onVolume={playlist.volume}
       />
+      <PlaylistBalancer />
       <SoundboardRemote onPlay={soundboard.play} onStop={soundboard.stop} />
       <SoundboardPlaybackSync onSync={soundboard.sync} />
       <Snackbar

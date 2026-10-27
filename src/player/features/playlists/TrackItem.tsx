@@ -4,16 +4,24 @@ import ListItemButton from "@mui/material/ListItemButton";
 import ListItemText from "@mui/material/ListItemText";
 import PlayArrow from "@mui/icons-material/PlayArrowRounded";
 import Pause from "@mui/icons-material/PauseRounded";
+import LayersIcon from "@mui/icons-material/LayersRounded";
+import Tooltip from "@mui/material/Tooltip";
 import IconButton from "@mui/material/IconButton";
 import Paper from "@mui/material/Paper";
 
 import MoreVert from "@mui/icons-material/MoreVertRounded";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
+import ListSubheader from "@mui/material/ListSubheader";
 
 import { Track, removeTrack, Playlist } from "./playlistsSlice";
 import { useDispatch, useSelector } from "react-redux";
 import { TrackSettings } from "./TrackSettings";
+import {
+  getPlayableLayers,
+  getTrackLayers,
+  isDynamicTrack,
+} from "./trackLayers";
 import { RootState } from "../../app/store";
 import {
   playPause,
@@ -26,7 +34,7 @@ import {
 type TrackItemProps = {
   track: Track;
   playlist: Playlist;
-  onPlay: (id: string) => void;
+  onPlay: (id: string, layer?: string) => void;
 };
 
 export function TrackItem({ track, playlist, onPlay }: TrackItemProps) {
@@ -72,12 +80,23 @@ export function TrackItem({ track, playlist, onPlay }: TrackItemProps) {
     handleMenuClose();
   }
 
-  function handlePlayPause() {
+  // Layer picker shown when starting a dynamic track
+  const [layerAnchorEl, setLayerAnchorEl] = useState<null | HTMLElement>(null);
+  const playableLayers = getPlayableLayers(track);
+
+  function handlePlayPause(event: React.MouseEvent<HTMLButtonElement>) {
     if (isCurrentTrack) {
       dispatch(playPause(!playing));
+    } else if (playableLayers.length > 1) {
+      setLayerAnchorEl(event.currentTarget);
     } else {
       onPlay(track.id);
     }
+  }
+
+  function handleLayerPlay(layer: string) {
+    setLayerAnchorEl(null);
+    onPlay(track.id, layer);
   }
 
   return (
@@ -109,6 +128,14 @@ export function TrackItem({ track, playlist, onPlay }: TrackItemProps) {
               typography: "body1",
             }}
           />
+          {isDynamicTrack(track) && (
+            <Tooltip title={`Dynamic track (${getTrackLayers(track).length} layers)`}>
+              <LayersIcon
+                fontSize="small"
+                sx={{ mx: 1, color: "rgba(255,255,255,0.6)" }}
+              />
+            </Tooltip>
+          )}
           <IconButton
             aria-label={playing ? "pause" : "play"}
             onClick={handlePlayPause}
@@ -130,6 +157,20 @@ export function TrackItem({ track, playlist, onPlay }: TrackItemProps) {
         <MenuItem onClick={handleEdit}>Edit</MenuItem>
         <MenuItem onClick={handleCopyID}>Copy ID</MenuItem>
         <MenuItem onClick={handleDelete}>Delete</MenuItem>
+      </Menu>
+      <Menu
+        anchorEl={layerAnchorEl}
+        open={Boolean(layerAnchorEl)}
+        onClose={() => setLayerAnchorEl(null)}
+      >
+        <ListSubheader sx={{ lineHeight: "36px", bgcolor: "transparent" }}>
+          Start on layer
+        </ListSubheader>
+        {playableLayers.map((layer) => (
+          <MenuItem key={layer.id} onClick={() => handleLayerPlay(layer.id)}>
+            {layer.title}
+          </MenuItem>
+        ))}
       </Menu>
       <TrackSettings
         track={track}

@@ -36,6 +36,11 @@ const SeekRequest = Type.Object({
 });
 type SeekRequestType = Static<typeof SeekRequest>;
 
+const LayerRequest = Type.Object({
+  id: Type.String(),
+});
+type LayerRequestType = Static<typeof LayerRequest>;
+
 async function waitForPlaybackReply(): Promise<PlaylistPlaybackReply> {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
@@ -236,6 +241,30 @@ export const playback: (manager: PlayerManager) => FastifyPluginCallback =
             "PLAYER_REMOTE_PLAYLIST_PLAYBACK_SHUFFLE",
             request.body.shuffle
           );
+          reply.status(200).send(request.body);
+        } else {
+          reply.status(503).send(VIEW_ERROR);
+        }
+      }
+    );
+
+    fastify.put<{
+      Body: LayerRequestType;
+      Reply: LayerRequestType | ReplyError;
+    }>(
+      "/layer",
+      {
+        schema: {
+          body: LayerRequest,
+          response: {
+            200: LayerRequest,
+          },
+        },
+      },
+      (request, reply) => {
+        const view = manager.getView();
+        if (view) {
+          view.send("PLAYER_REMOTE_PLAYLIST_PLAYBACK_LAYER", request.body.id);
           reply.status(200).send(request.body);
         } else {
           reply.status(503).send(VIEW_ERROR);

@@ -27,6 +27,8 @@ export interface PlaylistPlaybackState {
   repeat: Repeat;
   track?: Track;
   playback?: Playback;
+  /** Id of the layer being heard for a dynamic track, the main layer when undefined */
+  layer?: string;
 }
 
 const initialState: PlaylistPlaybackState = {
@@ -173,16 +175,21 @@ export const playlistPlaybackSlice = createSlice({
     },
     playTrack: (
       state,
-      action: PayloadAction<{ track: Track; duration: number }>,
+      action: PayloadAction<{ track: Track; duration: number; layer?: string }>,
     ) => {
       state.track = action.payload.track;
       state.playing = true;
       state.playback = { progress: 0, duration: action.payload.duration };
+      state.layer = action.payload.layer;
     },
     stopTrack: (state) => {
       state.track = undefined;
       state.playing = false;
       state.playback = undefined;
+      state.layer = undefined;
+    },
+    selectLayer: (state, action: PayloadAction<string>) => {
+      state.layer = action.payload;
     },
     playPause: (state, action: PayloadAction<boolean>) => {
       state.playing = action.payload;
@@ -234,6 +241,7 @@ export const {
   addTracksToQueueIfNeeded,
   playTrack,
   stopTrack,
+  selectLayer,
   playPause,
   updatePlayback,
   adjustVolume,

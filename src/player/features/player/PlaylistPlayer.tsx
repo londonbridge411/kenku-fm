@@ -6,6 +6,9 @@ import Typography from "@mui/material/Typography";
 import Slider from "@mui/material/Slider";
 import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
+import Tooltip from "@mui/material/Tooltip";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Pause from "@mui/icons-material/PauseRounded";
 import PlayArrow from "@mui/icons-material/PlayArrowRounded";
 import VolumeDown from "@mui/icons-material/VolumeDownRounded";
@@ -16,6 +19,9 @@ import RepeatOne from "@mui/icons-material/RepeatOneRounded";
 import Shuffle from "@mui/icons-material/ShuffleRounded";
 import Next from "@mui/icons-material/SkipNextRounded";
 import Previous from "@mui/icons-material/SkipPreviousRounded";
+import Stop from "@mui/icons-material/StopRounded";
+import SoftStop from "@mui/icons-material/TrendingDownRounded";
+import Balancer from "@mui/icons-material/GraphicEqRounded";
 import useMediaQuery from "@mui/material/useMediaQuery";
 
 import { useDispatch, useSelector } from "react-redux";
@@ -26,7 +32,11 @@ import {
   mute,
   shuffle,
   repeat,
+  selectLayer,
 } from "../playlists/playlistPlaybackSlice";
+import { BalancerSettings } from "../playlists/BalancerSettings";
+import { getPlayableLayers } from "../playlists/trackLayers";
+import { LevelMeter } from "./LevelMeter";
 
 const minWidthForLargeContext = 650;
 
@@ -78,6 +88,8 @@ type PlaylistPlayerProps = {
   onPlaylistNext: () => void;
   onPlaylistPrevious: () => void;
   onPlaylistSeek: (to: number) => void;
+  onPlaylistStop: () => void;
+  onPlaylistSoftStop: () => void;
 };
 
 function Title() {
@@ -120,6 +132,8 @@ function Title() {
 function Controls({
   onPlaylistPrevious,
   onPlaylistNext,
+  onPlaylistStop,
+  onPlaylistSoftStop,
 }: Omit<PlaylistPlayerProps, "onPlaylistSeek">) {
   const dispatch = useDispatch();
   const playbackShuffle = useSelector(
@@ -171,6 +185,17 @@ function Controls({
       <IconButton aria-label="shuffle" onClick={handleShuffle}>
         <Shuffle color={playbackShuffle ? "primary" : undefined} />
       </IconButton>
+      <Tooltip title="Stop">
+        <span>
+          <IconButton
+            disabled={disabled}
+            aria-label="stop"
+            onClick={() => onPlaylistStop()}
+          >
+            <Stop />
+          </IconButton>
+        </span>
+      </Tooltip>
       <IconButton
         disabled={disabled}
         aria-label="previous"
@@ -196,6 +221,17 @@ function Controls({
       >
         <Next />
       </IconButton>
+      <Tooltip title="Soft Stop">
+        <span>
+          <IconButton
+            disabled={disabled}
+            aria-label="soft stop"
+            onClick={() => onPlaylistSoftStop()}
+          >
+            <SoftStop />
+          </IconButton>
+        </span>
+      </Tooltip>
       <IconButton aria-label={`repeat ${playbackRepeat}`} onClick={handlRepeat}>
         {playbackRepeat === "off" ? (
           <RepeatIcon />
@@ -209,6 +245,47 @@ function Controls({
   );
 }
 
+/** Buttons for switching between the layers of a dynamic track */
+function Layers() {
+  const dispatch = useDispatch();
+  const track = useSelector((state: RootState) => state.playlistPlayback.track);
+  const layer = useSelector((state: RootState) => state.playlistPlayback.layer);
+
+  // Use the track as it was when played so the layers match the playback
+  const layers = track ? getPlayableLayers(track) : [];
+  if (layers.length < 2) {
+    return null;
+  }
+
+  function handleChange(_: React.MouseEvent, value: string | null) {
+    if (value !== null) {
+      dispatch(selectLayer(value));
+    }
+  }
+
+  return (
+    <Box sx={{ display: "flex", justifyContent: "center", mb: 1 }}>
+      <ToggleButtonGroup
+        size="small"
+        exclusive
+        value={layer || track.id}
+        onChange={handleChange}
+        aria-label="layers"
+      >
+        {layers.map((trackLayer) => (
+          <ToggleButton
+            key={trackLayer.id}
+            value={trackLayer.id}
+            sx={{ textTransform: "none", px: 1.5, py: 0.25 }}
+          >
+            {trackLayer.title}
+          </ToggleButton>
+        ))}
+      </ToggleButtonGroup>
+    </Box>
+  );
+}
+
 function Volume() {
   const dispatch = useDispatch();
   const large = useMediaQuery(`(min-width: ${minWidthForLargeContext}px)`);
@@ -217,6 +294,10 @@ function Volume() {
   const volume = useSelector(
     (state: RootState) => state.playlistPlayback.volume,
   );
+  const balancerEnabled = useSelector(
+    (state: RootState) => state.balancer.enabled,
+  );
+  const [balancerOpen, setBalancerOpen] = useState(false);
 
   function handleVolumeChange(_: Event, value: number | number[]) {
     dispatch(adjustVolume(value as number));
@@ -242,19 +323,34 @@ function Volume() {
       <IconButton aria-label={muted ? "unmute" : "mute"} onClick={handleMute}>
         {muted ? <VolumeOff /> : <VolumeDown />}
       </IconButton>
-      <VolumeSlider
-        aria-label="Volume"
-        value={muted ? 0 : volume}
-        step={0.01}
-        min={0}
-        max={1}
-        onChange={handleVolumeChange}
-      />
+      <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+        <VolumeSlider
+          aria-label="Volume"
+          value={muted ? 0 : volume}
+          step={0.01}
+          min={0}
+          max={1}
+          onChange={handleVolumeChange}
+        />
+        <LevelMeter />
+      </Box>
       {!large && (
         <Box px={2} height="24px">
           <VolumeUp sx={{ color: "rgba(255,255,255,0.4)" }} />
         </Box>
       )}
+      <Tooltip title="dB Balancer">
+        <IconButton
+          aria-label="dB balancer"
+          onClick={() => setBalancerOpen(true)}
+        >
+          <Balancer color={balancerEnabled ? "primary" : undefined} />
+        </IconButton>
+      </Tooltip>
+      <BalancerSettings
+        open={balancerOpen}
+        onClose={() => setBalancerOpen(false)}
+      />
     </Stack>
   );
 }
@@ -313,6 +409,8 @@ export function PlaylistPlayer({
   onPlaylistNext,
   onPlaylistPrevious,
   onPlaylistSeek,
+  onPlaylistStop,
+  onPlaylistSoftStop,
 }: PlaylistPlayerProps) {
   const large = useMediaQuery(`(min-width: ${minWidthForLargeContext}px)`);
 
@@ -324,9 +422,12 @@ export function PlaylistPlayer({
           <Controls
             onPlaylistNext={onPlaylistNext}
             onPlaylistPrevious={onPlaylistPrevious}
+            onPlaylistStop={onPlaylistStop}
+            onPlaylistSoftStop={onPlaylistSoftStop}
           />
           <Volume />
         </Stack>
+        <Layers />
         <Time onPlaylistSeek={onPlaylistSeek} />
       </>
     );
@@ -334,10 +435,13 @@ export function PlaylistPlayer({
     return (
       <>
         <Title />
+        <Layers />
         <Time onPlaylistSeek={onPlaylistSeek} />
         <Controls
           onPlaylistNext={onPlaylistNext}
           onPlaylistPrevious={onPlaylistPrevious}
+          onPlaylistStop={onPlaylistStop}
+          onPlaylistSoftStop={onPlaylistSoftStop}
         />
         <Volume />
       </>

@@ -10,6 +10,13 @@ export interface PlaylistPlaybackReply {
     title: string;
     duration: number;
     progress: number;
+    /** Layers of a dynamic track, the first is the main layer */
+    layers?: {
+      id: string;
+      title: string;
+    }[];
+    /** Id of the layer being heard */
+    layer?: string;
   };
   playlist?: {
     id: string;
@@ -42,6 +49,12 @@ export interface PlaylistsReply {
     id: string;
     url: string;
     title: string;
+    layers?: {
+      id: string;
+      url: string;
+      title: string;
+    }[];
+    layerTitle?: string;
   }[];
 }
 
