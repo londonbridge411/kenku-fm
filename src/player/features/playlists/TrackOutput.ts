@@ -11,6 +11,8 @@ const KEEP_ALIVE_LEVEL = 1e-8;
 
 let context: AudioContext | null = null;
 let limiter: DynamicsCompressorNode | null = null;
+/** Left and right analysers of the final output for the level meter */
+let meter: [AnalyserNode, AnalyserNode] | null = null;
 /** A media element can only ever be connected to one source node so reuse them */
 const sources = new WeakMap<HTMLMediaElement, MediaElementAudioSourceNode>();
 /** Layer gain each source is connected to */
@@ -45,6 +47,19 @@ function getOutput() {
     limiter.attack.value = 0.003;
     limiter.release.value = 0.25;
     limiter.connect(context.destination);
+    // Up mix mono tracks to stereo so both sides of the meter move
+    const stereo = context.createGain();
+    stereo.channelCount = 2;
+    stereo.channelCountMode = "explicit";
+    stereo.channelInterpretation = "speakers";
+    const splitter = context.createChannelSplitter(2);
+    limiter.connect(stereo);
+    stereo.connect(splitter);
+    meter = [context.createAnalyser(), context.createAnalyser()];
+    meter.forEach((analyser, channel) => {
+      analyser.fftSize = 1024;
+      splitter.connect(analyser, channel);
+    });
     // Chromium stops the output of a silent audio context after 30 seconds and
     // starts it again when sound plays. Keep it running with a signal too quiet
     // to hear so tracks never start while the output is starting
@@ -67,6 +82,11 @@ export function startOutput() {
   }
   // Getting the volume creates Howler's audio context
   Howler.volume();
+}
+
+/** Analysers for the left and right output, null until the output is started */
+export function getOutputMeter() {
+  return meter;
 }
 
 /**

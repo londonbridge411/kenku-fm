@@ -36,6 +36,7 @@ import {
 } from "../playlists/playlistPlaybackSlice";
 import { BalancerSettings } from "../playlists/BalancerSettings";
 import { getPlayableLayers } from "../playlists/trackLayers";
+import { LevelMeter } from "./LevelMeter";
 
 const minWidthForLargeContext = 650;
 
@@ -322,14 +323,17 @@ function Volume() {
       <IconButton aria-label={muted ? "unmute" : "mute"} onClick={handleMute}>
         {muted ? <VolumeOff /> : <VolumeDown />}
       </IconButton>
-      <VolumeSlider
-        aria-label="Volume"
-        value={muted ? 0 : volume}
-        step={0.01}
-        min={0}
-        max={1}
-        onChange={handleVolumeChange}
-      />
+      <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+        <VolumeSlider
+          aria-label="Volume"
+          value={muted ? 0 : volume}
+          step={0.01}
+          min={0}
+          max={1}
+          onChange={handleVolumeChange}
+        />
+        <LevelMeter />
+      </Box>
       {!large && (
         <Box px={2} height="24px">
           <VolumeUp sx={{ color: "rgba(255,255,255,0.4)" }} />
