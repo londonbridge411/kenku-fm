@@ -53,7 +53,8 @@ export function usePlaylistPlayback(onError: (message: string) => void) {
   }, []);
 
   const play = useCallback(
-    (track: Track) => {
+    /** @param layer Id of the layer to start a dynamic track on, the main layer by default */
+    (track: Track, layer?: string) => {
       // The previous track is faded out below so no need to finish the soft stop
       cancelSoftStop();
       let prevTrack = trackRef.current;
@@ -89,6 +90,7 @@ export function usePlaylistPlayback(onError: (message: string) => void) {
       try {
         howl = new LayeredTrack(getPlayableLayers(track), output, {
           mute: muted,
+          layer,
         });
 
         trackRef.current = howl;
@@ -98,6 +100,7 @@ export function usePlaylistPlayback(onError: (message: string) => void) {
             playTrack({
               track,
               duration: Math.floor(howl.duration()),
+              layer: howl.layers[howl._active].id,
             })
           );
           // Fade out previous track and fade in new track

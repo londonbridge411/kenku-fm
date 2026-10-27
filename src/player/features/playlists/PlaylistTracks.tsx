@@ -32,7 +32,7 @@ import { useHideScrollbar } from "../../../renderer/common/useHideScrollbar";
 type PlaylistTracksProps = {
   items: Track[];
   playlist: Playlist;
-  onPlay: (id: string) => void;
+  onPlay: (id: string, layer?: string) => void;
 };
 
 export function PlaylistTracks({

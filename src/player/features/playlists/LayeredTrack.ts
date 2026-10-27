@@ -38,11 +38,17 @@ export class LayeredTrack extends TypedEmitter<LayeredTrackEvents> {
   constructor(
     layers: TrackLayer[],
     output: TrackOutput,
-    options: { mute: boolean }
+    options: { mute: boolean; layer?: string }
   ) {
     super();
     this.layers = layers;
     this._output = output;
+    // Start on the requested layer, before any layers are added so it's heard right away
+    this._active = Math.max(
+      layers.findIndex((layer) => layer.id === options.layer),
+      0
+    );
+    output.setLayer(this._active, 0);
     let loaded = 0;
     this._howls = layers.map((layer) => {
       const howl = new Howl({

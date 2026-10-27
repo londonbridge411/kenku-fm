@@ -25,7 +25,7 @@ import { PlaylistTracks } from "./PlaylistTracks";
 import { TrackAdd } from "./TrackAdd";
 
 type PlaylistProps = {
-  onPlay: (track: Track) => void;
+  onPlay: (track: Track, layer?: string) => void;
 };
 
 export function Playlist({ onPlay }: PlaylistProps) {
@@ -69,12 +69,12 @@ export function Playlist({ onPlay }: PlaylistProps) {
     handleMenuClose();
   }
 
-  function handleTrackPlay(trackId: string) {
+  function handleTrackPlay(trackId: string, layer?: string) {
     const track = playlists.tracks[trackId];
     if (track) {
       let tracks = [...playlist.tracks];
       dispatch(startQueue({ tracks, trackId, playlistId: playlist.id }));
-      onPlay(track);
+      onPlay(track, layer);
     }
   }
 
